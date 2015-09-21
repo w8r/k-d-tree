@@ -12,7 +12,7 @@ L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
     '<a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-let data = require('./data');
+let data = require('./data.json');
 
 let p1 = L.latLng(0, 0);
 let p2 = L.latLng(0, 0);
