@@ -1,5 +1,7 @@
 # K-d tree ([demo](https://w8r.github.io/k-d-tree/example/))
 
+![demo](https://cloud.githubusercontent.com/assets/26884/10002492/b7484c2e-60a7-11e5-94cf-95cbaba9ad2b.gif)
+
 ```js
 var KDTree = require('k-d-tree');
 var geoJSON = {
@@ -52,5 +54,9 @@ var tree = new KDTree(geoJSON.features.map(function(f) {
     return f;
 }), distance, [0, 1]);
 ```
+
+based on [kd-tree-javascript](https://github.com/ubilabs/kd-tree-javascript) by @aemkei
+
+2015
 
 
