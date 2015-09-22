@@ -1,1 +1,1 @@
-module.exports = require('./src/tree');
+export { default as default } from './src/tree';

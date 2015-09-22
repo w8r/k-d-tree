@@ -102,7 +102,8 @@ export default class KDTree {
    * @param {Object=} src
    */
   toJSON(src) {
-    if (!src) src = this.root;
+    if (!src)
+      src = this.root;
     let dest = createNode(src.data, src.dimension, null);
     if (src.left) {
       dest.left = this.toJSON(src.left);
