@@ -1,6 +1,6 @@
 import BinaryHeap from './binary_heap';
 
-function createNode(data, parent = null, dimension) {
+function createNode(data, dimension, parent = null) {
   return {
     data: data,
 
@@ -114,16 +114,16 @@ export default class KDTree {
     return dest;
   }
 
-  innerSearch(node, parent) {
+  innerSearch(point, node, parent) {
     if (node === null) {
       return parent;
     }
 
     let dimension = this.dimensions[node.dimension];
     if (point[dimension] < node.data[dimension]) {
-      return this.innerSearch(node.left, node);
+      return this.innerSearch(point, node.left, node);
     } else {
-      return this.innerSearch(node.right, node);
+      return this.innerSearch(point, node.right, node);
     }
   }
 
@@ -132,7 +132,7 @@ export default class KDTree {
    * @return {Node}
    */
   insert(point) {
-    let insertPosition = this.innerSearch(this.root, null);
+    let insertPosition = this.innerSearch(point, this.root, null);
     let dimensions = this.dimensions;
 
     if (insertPosition === null) {
@@ -346,11 +346,7 @@ export default class KDTree {
    * @return {Array.<*>} [data, distance]
    */
   nearest(point, maxNodes = 1, maxDistance = 0) {
-    let bestNodes = new BinaryHeap(
-      function(e) {
-        return -e[1];
-      }
-    );
+    let bestNodes = new BinaryHeap((e) => -e[1]);
 
     if (maxDistance) {
       for (let i = 0; i < maxNodes; i++) {
@@ -377,20 +373,16 @@ export default class KDTree {
    */
   balanceFactor() {
     function height(node) {
-      if (node === null) {
-        return 0;
-      }
+      if (node === null) return 0;
       return Math.max(height(node.left), height(node.right)) + 1;
     }
 
     function count(node) {
-      if (node === null) {
-        return 0;
-      }
+      if (node === null) return 0;
       return count(node.left) + count(node.right) + 1;
     }
 
-    return height(self.root) / (Math.log(count(self.root)) / Math.log(2));
+    return height(this.root) / (Math.log(count(this.root)) / Math.log(2));
   }
 
 }

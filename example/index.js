@@ -1,7 +1,7 @@
 const quickhull = require("quick-hull-2d");
 const color = require('to-color');
 
-const KDTree = require('../');
+const KDTree = require('../dist/kdtree.js');
 let latestCenter = [10.454150, 51.164181];
 const map = global.map = new L.Map('map', {})
   .setView(latestCenter.slice().reverse(), 4);
@@ -12,7 +12,7 @@ L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
     '<a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-let data = require('./data.json');
+let data = require('./data');
 
 let p1 = L.latLng(0, 0);
 let p2 = L.latLng(0, 0);
@@ -26,6 +26,7 @@ function distance(a, b) {
   return map.options.crs.distance(p1, p2);
 }
 
+console.log(data.features.length, 'items');
 console.time('build k-d tree');
 let tree = new KDTree(data.features.map(function(f) {
   let c = f.geometry.coordinates.slice();

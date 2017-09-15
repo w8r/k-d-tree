@@ -1,17 +1,19 @@
 {
-  "name": "kd-tree",
-  "version": "1.0.0",
-  "description": "Kd-tree",
+  "name": "kd-tree-js",
+  "version": "0.0.1",
+  "description": "kd-tree",
   "main": "index.js",
   "browserify": {
     "transform": [
       "babelify"
     ]
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "dependencies": {},
   "devDependencies": {
-    "babelify": "^6.3.0",
-    "browserify": "^11.0.1",
     "csv": "^0.4.6",
     "csvtojson": "^0.4.2",
     "leaflet": "^0.7.5",
@@ -19,20 +21,28 @@
     "mapbox": "^0.6.2",
     "mapbox.js": "^2.2.2",
     "quick-hull-2d": "^0.1.0",
+    "rollup": "^0.45.2",
+    "rollup-plugin-buble": "^0.15.0",
+    "rollup-plugin-commonjs": "^8.2.1",
+    "rollup-plugin-json": "^2.3.0",
+    "rollup-plugin-multi-entry": "^2.0.1",
+    "rollup-plugin-node-resolve": "^3.0.0",
+    "rollup-watch": "^4.3.1",
+    "source-map-support": "^0.4.15",
     "st": "^0.5.5",
     "tap-closer": "^1.0.0",
     "tap-status": "^1.0.1",
     "tape": "^4.2.0",
     "to-color": "^1.0.1",
-    "uglify-js": "^2.4.24",
-    "watchify": "^3.4.0"
+    "uglify-js": "^3.1.0"
   },
   "scripts": {
-    "start": "watchify example/index.js -o example/bundle.js -d & st -nc -d example -p 3000",
-    "test": "browserify test/*.test.js | tap-closer | tap-status",
-    "build": "npm run dist && npm run uglify",
-    "dist": "browserify index.js -o dist/nnjs.js",
-    "uglify": "uglifyjs dist/nnjs.js > dist/nnjs.min.js -m"
+    "start": "rollup -w -c rollup.config.js & st -nc -d example -p 3000",
+    "test": "tape test/*.test.js | tap-closer | tap-status",
+    "build": "mkdir -p dist && npm run dist && npm run uglify",
+    "dist": "rollup -c rollup.config.js",
+    "uglify": "uglifyjs dist/kdtree.js > dist/kdrtee.min.js -m",
+    "prepublish": "npm run build"
   },
   "keywords": [
     "tree",
@@ -40,6 +50,10 @@
     "spatial",
     "kd-tree"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/w8r/k-d-tree.git"
+  },
   "author": "Alexander Milevski <info@w8r.name>",
   "license": "MIT"
 }
