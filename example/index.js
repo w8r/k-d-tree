@@ -23,12 +23,15 @@ function distance(a, b) {
   p2.lat = b[1];
   p2.lng = b[0];
 
+  //console.log(a, b);
+
+  //return L.latLng(a.slice().reverse()).distanceTo(b.slice(0, 2).reverse());
   return map.options.crs.distance(p1, p2);
 }
 
 console.log(data.features.length, 'items');
 console.time('build k-d tree');
-let tree = new KDTree(data.features.map(function(f) {
+let tree = global.tree = new KDTree(data.features.map(function(f) {
   let c = f.geometry.coordinates.slice();
   c.feature = f;
   return c;

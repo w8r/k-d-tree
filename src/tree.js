@@ -1,16 +1,29 @@
-import BinaryHeap from './binary_heap';
+import BinaryHeap  from './binary_heap';
+import quickselect from './quickselect';
 
 function createNode(data, dimension, parent = null) {
   return {
-    data: data,
+    data, parent, dimension,
 
-    left: null,
-    right: null,
-    parent: parent,
-
-    dimension: dimension
+    left:  null,
+    right: null
   };
 }
+
+function insertionSort(arr, f) {
+  for(var i = 1, len = arr.length; i < len; i++) {
+    var el = arr[i], j = i;
+    while (j > 0 && arr[j - 1][f] > el[f]){
+      arr[j] = arr[j - 1];
+      j--;
+    }
+
+    arr[j] = el;
+  }
+
+  return arr;
+}
+
 
 export default class KDTree {
 
@@ -21,79 +34,114 @@ export default class KDTree {
      */
     this.dimensions = dimensions;
 
+    var sorters = [];
+    for (var i = 0, len = dimensions.length; i < len; i++) {
+      var dimension = dimensions[i];
+      sorters.push(function (a, b) {
+        return a[dimension] - b[dimension];
+      });
+    }
+
+    this._sorters = sorters;
+
     /**
      * @type {Function}
      */
     this.metric = metric;
 
-    // If points is not an array, assume we're loading a pre-built tree
-    if (!Array.isArray(points)) {
-      this.loadTree(points);
-    } else {
+    /**
+     * @type {Node}
+     */
+    this.root = null;
 
-      /**
-       * @type {Object}
-       */
-      this.root = this.buildTree(points, 0, null);
+    if (points) {
+      if (Array.isArray(points) && points.length > 0) {
+        this.load(points);
+      } else if (points.dimension) {
+        // If points is not an array, assume
+        // we're loading a pre-built tree
+        this.loadTree(points);
+      }
     }
+  }
 
-
+  load(points) {
+    this.root = this.buildTree(points, 0, this.root);
   }
 
   /**
+   * Non-recursive bulk-insert
    * @param  {Array.<Object>} points
    * @param  {Number}         depth
    * @param  {Object=}        parent
    * @return {Node}
    */
-  buildTree(points, depth, parent) {
-    const dimensions = this.dimensions;
-    let dim = depth % dimensions.length;
-    let median, node;
+  buildTree(points, depth, root) {
+    var d = this.dimensions.length;
+    var sorters = this._sorters;
 
-    if (points.length === 0) {
-      return null;
+    if (root === null) root = this.root = createNode(null, depth % d, null);
+
+    var Q = [root], node;
+    var parts = [points];
+
+    while (node = Q.pop()) {
+      var range = parts.pop();
+      var N     = range.length;
+
+      if (N === 1) {
+        node.data = range[0];
+      } else {
+        var median    = Math.floor(N / 2);
+        var dimension = node.dimension;
+        var dim       = dimension % d;
+        //quickselect(range, median, undefined, undefined, (a, b) => a[dim] - b[dim]);
+        //insertionSort(range, dim);
+        // range.sort((a, b) => a[dim] - b[dim]);
+        node.data = quickselect(range, median, dim); // range[median];
+
+        if (median < N - 1) {
+          parts.push(range.slice(median + 1));
+          node.right = createNode(null, dimension + 1, node);
+          Q.push(node.right);
+        }
+
+        // split
+        if (median > 0) {
+          parts.push(range.slice(0, median));
+          node.left = createNode(null, dimension + 1, node);
+          Q.push(node.left);
+        }
+      }
     }
 
-    if (points.length === 1) {
-      return createNode(points[0], dim, parent);
-    }
-
-    points.sort(function(a, b) {
-      return a[dimensions[dim]] - b[dimensions[dim]];
-    });
-
-    median = Math.floor(points.length / 2);
-    node = createNode(points[median], dim, parent);
-
-    // divide
-    node.left = this.buildTree(points.slice(0, median), depth + 1, node);
-    node.right = this.buildTree(points.slice(median + 1), depth + 1, node);
-
-    return node;
+    return root;
   }
+
 
   /**
    * Reloads a serialied tree by putting back `parent refs`
    * @param  {Object=} data
    */
   loadTree(data) {
-    this.root = data;
-    KDTree.restoreParent(this.root);
-  }
+    var root = data;
+    var Q = [root], node;
 
-
-  static restoreParent(root) {
-    if (root.left) {
-      root.left.parent = root;
-      KDTree.restoreParent(root.left);
+    while (node = Q.pop()) {
+      if (node.left) {
+        node.left.parent = node;
+        Q.push(node.left);
+      }
+      if (node.right) {
+        node.right.parent = node;
+        Q.push(node.right);
+      }
     }
 
-    if (root.right) {
-      root.right.parent = root;
-      KDTree.restoreParent(root.right);
-    }
+    this.root = root;
+    return this;
   }
+
 
   /**
    * Convert to a JSON serializable structure;
@@ -114,17 +162,16 @@ export default class KDTree {
     return dest;
   }
 
-  innerSearch(point, node, parent) {
-    if (node === null) {
-      return parent;
-    }
 
-    let dimension = this.dimensions[node.dimension];
-    if (point[dimension] < node.data[dimension]) {
-      return this.innerSearch(point, node.left, node);
-    } else {
-      return this.innerSearch(point, node.right, node);
+  _findNode(point) {
+    var Q = [this.root], node = null, D;
+    while (Q.length !== 0) {
+      node = Q.pop();
+      D = node.dimension;
+      if (point[D] < node.data[D] && node.left) Q.push(node.left);
+      else if (node.right)                      Q.push(node.right);
     }
+    return node;
   }
 
   /**
@@ -132,49 +179,23 @@ export default class KDTree {
    * @return {Node}
    */
   insert(point) {
-    let insertPosition = this.innerSearch(point, this.root, null);
-    let dimensions = this.dimensions;
+    const dimensions = this.dimensions;
 
-    if (insertPosition === null) {
+    if (this.root === null) {
       this.root = createNode(point, 0, null);
       return this.root;
     }
 
-    let newNode = createNode(point, (insertPosition.dimension + 1) % dimensions.length,
-      insertPosition);
-    let dimension = dimensions[insertPosition.dimension];
+    const node = this._findNode(point);
+    const dim  = node.dimension;
+    const newNode = createNode(point, (dim + 1) % dimensions.length, node);
+    const D = dimensions[dim];
 
-    if (point[dimension] < insertPosition.data[dimension]) {
-      insertPosition.left = newNode;
-    } else {
-      insertPosition.right = newNode;
-    }
-
+    if (point[D] < node.data[D]) node.left  = newNode;
+    else                         node.right = newNode;
     return newNode;
   }
 
-  /**
-   * @param  {Node|Null} node
-   * @param  {*}         point
-   * @return {Node|Null}
-   */
-  nodeSearch(node, point) {
-    if (node === null) {
-      return null;
-    }
-
-    if (node.data === point) {
-      return node;
-    }
-
-    var dimension = this.dimensions[node.dimension];
-
-    if (point[dimension] < node.data[dimension]) {
-      return this.nodeSearch(node.left, node.data);
-    } else {
-      return this.nodeSearch(node.right, node.data);
-    }
-  }
 
   /**
    * @param  {Node}          node
@@ -182,31 +203,25 @@ export default class KDTree {
    * @return {Node|Null}
    */
   findMin(node, dim) {
-    if (node === null) {
-      return null;
-    }
+    if (node === null) return null;
 
-    let dimension = this.dimensions[dim];
+    let D = this.dimensions[dim];
 
     if (node.dimension === dim) {
-      if (node.left !== null) {
+      if (node.left) {
         return this.findMin(node.left, dim);
       }
       return node;
     }
 
-    let own = node.data[dimension];
-    let left = this.findMin(node.left, dim);
+    let own   = node.data[D];
+    let left  = this.findMin(node.left, dim);
     let right = this.findMin(node.right, dim);
-    let min = node;
+    let min   = node;
 
-    if (left !== null && left.data[dimension] < own) {
-      min = left;
-    }
+    if (left  !== null && left.data[D]  < own)         min = left;
+    if (right !== null && right.data[D] < min.data[D]) min = right;
 
-    if (right !== null && right.data[dimension] < min.data[dimension]) {
-      min = right;
-    }
     return min;
   }
 
@@ -256,10 +271,8 @@ export default class KDTree {
    * @return {*}
    */
   remove(point) {
-    let node = this.nodeSearch(this.root, point);
-    if (node) {
-      this.removeNode(node);
-    }
+    let node = this._findNode(point);
+    if (node) this.removeNode(node);
     return point;
   }
 
@@ -283,19 +296,17 @@ export default class KDTree {
    * @param  {Number}     maxNodes
    */
   nearestSearch(node, point, bestNodes, maxNodes) {
-    var bestChild;
+    let bestChild;
     const dimensions = this.dimensions;
-    let dimension = dimensions[node.dimension];
-    let ownDistance = this.metric(point, node.data);
-    let linearPoint = {};
-    let otherChild, i;
+    let dimension    = dimensions[node.dimension];
+    let ownDistance  = this.metric(point, node.data);
+    let linearPoint  = [];
+    let otherChild, i, d;
 
     for (let i = 0, len = dimensions.length; i < len; i++) {
-      if (i === node.dimension) {
-        linearPoint[dimensions[i]] = point[dimensions[i]];
-      } else {
-        linearPoint[dimensions[i]] = node.data[dimensions[i]];
-      }
+      d = dimensions[i];
+      if (i === node.dimension) linearPoint[d] = point[d];
+      else                      linearPoint[d] = node.data[d];
     }
 
     let linearDistance = this.metric(linearPoint, node.data);
@@ -328,11 +339,9 @@ export default class KDTree {
 
     if (bestNodes.size() < maxNodes ||
       Math.abs(linearDistance) < bestNodes.peek()[1]) {
-      if (bestChild === node.left) {
-        otherChild = node.right;
-      } else {
-        otherChild = node.left;
-      }
+      if (bestChild === node.left) otherChild = node.right;
+      else                         otherChild = node.left;
+
       if (otherChild !== null) {
         this.nearestSearch(otherChild, point, bestNodes, maxNodes);
       }
@@ -349,21 +358,15 @@ export default class KDTree {
     let bestNodes = new BinaryHeap((e) => -e[1]);
 
     if (maxDistance) {
-      for (let i = 0; i < maxNodes; i++) {
-        bestNodes.push([null, maxDistance]);
-      }
+      for (let i = 0; i < maxNodes; i++) bestNodes.push([null, maxDistance]);
     }
 
-    if (this.root) {
-      this.nearestSearch(this.root, point, bestNodes, maxNodes);
-    }
+    if (this.root) this.nearestSearch(this.root, point, bestNodes, maxNodes);
 
-    let result = [];
+    const result = [], content = bestNodes.content;
 
-    for (let i = 0, len = Math.min(maxNodes, bestNodes.content.length); i < len; i++) {
-      if (bestNodes.content[i][0]) {
-        result.push([bestNodes.content[i][0].data, bestNodes.content[i][1]]);
-      }
+    for (let i = 0, len = Math.min(maxNodes, content.length); i < len; i++) {
+      if (content[i][0]) result.push([content[i][0].data, content[i][1]]);
     }
     return result;
   }

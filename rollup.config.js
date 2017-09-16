@@ -15,6 +15,9 @@ const banner = `\
  * @preserve
  */
 `;
+const plugins = [ resolve({
+    extensions: [ '.js', '.json' ]
+  }), commonjs(), json(), buble() ];
 export default [{
   banner,
   entry:      'index.js',
@@ -22,13 +25,11 @@ export default [{
   format:     'umd',
   dest:       'dist/kdtree.js',
   moduleName: 'KDTree',
-  plugins:    [ buble() ]
+  plugins
 }, {
   entry:      'example/index.js',
   dest:       'example/bundle.js',
   format:     'iife',
   moduleName: 'demo',
-  plugins:    [ resolve({
-    extensions: [ '.js', '.json' ]
-  }), commonjs(), json(), buble() ]
+  plugins
 }];

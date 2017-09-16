@@ -37,7 +37,7 @@
     "uglify-js": "^3.1.0"
   },
   "scripts": {
-    "start": "rollup -w -c rollup.config.js & st -nc -d example -p 3000",
+    "start": "rollup -w -c rollup.config.js & st -nc -d . -p 3000",
     "test": "tape test/*.test.js | tap-closer | tap-status",
     "build": "mkdir -p dist && npm run dist && npm run uglify",
     "dist": "rollup -c rollup.config.js",

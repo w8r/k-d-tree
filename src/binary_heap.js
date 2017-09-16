@@ -116,9 +116,7 @@ export default class BinaryHeap {
         n = parentN;
       }
       // Found a parent that is less, no need to move it further.
-      else {
-        break;
-      }
+      else break;
     }
   }
 
@@ -148,9 +146,7 @@ export default class BinaryHeap {
         // Look it up and compute its score.
         child1Score = scoreFunction(content[child1N]);
         // If the score is less than our element's, we need to swap.
-        if (child1Score < elemScore) {
-          swap = child1N;
-        }
+        if (child1Score < elemScore) swap = child1N;
       }
 
       // Do the same checks for the other child.

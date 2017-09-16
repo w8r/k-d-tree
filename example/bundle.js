@@ -608,7 +608,6 @@ function generateOrientationProc() {
 generateOrientationProc();
 });
 
-// these should probably use robust-sum, etc
 function vectSum(a,b) {
     return a.map(function(val,i) { return a[i]+b[i] })
 }
@@ -883,9 +882,7 @@ BinaryHeap.prototype.bubbleUp = function bubbleUp (n) {
       n = parentN;
     }
     // Found a parent that is less, no need to move it further.
-    else {
-      break;
-    }
+    else { break; }
   }
 };
 
@@ -917,9 +914,7 @@ BinaryHeap.prototype.sinkDown = function sinkDown (n) {
       // Look it up and compute its score.
       child1Score = scoreFunction(content[child1N]);
       // If the score is less than our element's, we need to swap.
-      if (child1Score < elemScore) {
-        swap = child1N;
-      }
+      if (child1Score < elemScore) { swap = child1N; }
     }
 
     // Do the same checks for the other child.
@@ -939,17 +934,45 @@ BinaryHeap.prototype.sinkDown = function sinkDown (n) {
   }
 };
 
+function selectKth(arr, k, f) {
+  if (arr.length <= k) { throw new Error('Wrong input'); }
+
+  var from = 0, to = arr.length - 1;
+
+  // if from == to we reached the kth element
+  while (from < to) {
+    var r = from, w = to;
+    var mid = arr[Math.floor((r + w) / 2)];
+
+    // stop if the reader and writer meets
+    while (r < w) {
+      if (arr[r][f] >= mid[f]) { // put the large values at the end
+        var tmp = arr[w];
+        arr[w] = arr[r];
+        arr[r] = tmp;
+        w--;
+      } else { r++; } // the value is smaller than the pivot, skip
+    }
+
+    // if we stepped up (r++) we need to step one down
+    if (arr[r][f] > mid[f]) { r--; }
+
+    // the r pointer is on the end of the first k elements
+    if (k <= r) { to = r; }
+    else        { from = r + 1; }
+  }
+
+  return arr[k];
+}
+
 function createNode(data, dimension, parent) {
   if ( parent === void 0 ) { parent = null; }
 
   return {
-    data: data,
+    data: data, parent: parent, dimension: dimension,
 
-    left: null,
-    right: null,
-    parent: parent,
-
-    dimension: dimension
+    left:  null,
+    right: null
   };
 }
 
@@ -960,79 +983,114 @@ var KDTree = function KDTree(points, metric, dimensions) {
    */
   this.dimensions = dimensions;
 
+  var sorters = [];
+  for (var i = 0, len = dimensions.length; i < len; i++) {
+    var dimension = dimensions[i];
+    sorters.push(function (a, b) {
+      return a[dimension] - b[dimension];
+    });
+  }
+
+  this._sorters = sorters;
+
   /**
    * @type {Function}
    */
   this.metric = metric;
 
-  // If points is not an array, assume we're loading a pre-built tree
-  if (!Array.isArray(points)) {
-    this.loadTree(points);
-  } else {
+  /**
+   * @type {Node}
+   */
+  this.root = null;
 
-    /**
-     * @type {Object}
-     */
-    this.root = this.buildTree(points, 0, null);
+  if (points) {
+    if (Array.isArray(points) && points.length > 0) {
+      this.load(points);
+    } else if (points.dimension) {
+      // If points is not an array, assume
+      // we're loading a pre-built tree
+      this.loadTree(points);
+    }
   }
+};
 
-
+KDTree.prototype.load = function load (points) {
+  this.root = this.buildTree(points, 0, this.root);
 };
 
 /**
+ * Non-recursive bulk-insert
  * @param{Array.<Object>} points
  * @param{Number}       depth
  * @param{Object=}      parent
  * @return {Node}
  */
-KDTree.prototype.buildTree = function buildTree (points, depth, parent) {
-  var dimensions = this.dimensions;
-  var dim = depth % dimensions.length;
-  var median, node;
+KDTree.prototype.buildTree = function buildTree (points, depth, root) {
+  var d = this.dimensions.length;
+  var sorters = this._sorters;
 
-  if (points.length === 0) {
-    return null;
+  if (root === null) { root = this.root = createNode(null, depth % d, null); }
+
+  var Q = [root], node;
+  var parts = [points];
+
+  while (node = Q.pop()) {
+    var range = parts.pop();
+    var N   = range.length;
+
+    if (N === 1) {
+      node.data = range[0];
+    } else {
+      var median  = Math.floor(N / 2);
+      var dimension = node.dimension;
+      var dim     = dimension % d;
+      //quickselect(range, median, undefined, undefined, (a, b) => a[dim] - b[dim]);
+      //insertionSort(range, dim);
+      // range.sort((a, b) => a[dim] - b[dim]);
+      node.data = selectKth(range, median, dim); // range[median];
+
+      if (median < N - 1) {
+        parts.push(range.slice(median + 1));
+        node.right = createNode(null, dimension + 1, node);
+        Q.push(node.right);
+      }
+
+      // split
+      if (median > 0) {
+        parts.push(range.slice(0, median));
+        node.left = createNode(null, dimension + 1, node);
+        Q.push(node.left);
+      }
+    }
   }
 
-  if (points.length === 1) {
-    return createNode(points[0], dim, parent);
-  }
-
-  points.sort(function(a, b) {
-    return a[dimensions[dim]] - b[dimensions[dim]];
-  });
-
-  median = Math.floor(points.length / 2);
-  node = createNode(points[median], dim, parent);
-
-  // divide
-  node.left = this.buildTree(points.slice(0, median), depth + 1, node);
-  node.right = this.buildTree(points.slice(median + 1), depth + 1, node);
-
-  return node;
+  return root;
 };
+
 
 /**
  * Reloads a serialied tree by putting back `parent refs`
  * @param{Object=} data
  */
 KDTree.prototype.loadTree = function loadTree (data) {
-  this.root = data;
-  KDTree.restoreParent(this.root);
-};
+  var root = data;
+  var Q = [root], node;
 
-
-KDTree.restoreParent = function restoreParent (root) {
-  if (root.left) {
-    root.left.parent = root;
-    KDTree.restoreParent(root.left);
+  while (node = Q.pop()) {
+    if (node.left) {
+      node.left.parent = node;
+      Q.push(node.left);
+    }
+    if (node.right) {
+      node.right.parent = node;
+      Q.push(node.right);
+    }
   }
 
-  if (root.right) {
-    root.right.parent = root;
-    KDTree.restoreParent(root.right);
-  }
+  this.root = root;
+  return this;
 };
+
 
 /**
  * Convert to a JSON serializable structure;
@@ -1053,17 +1111,16 @@ KDTree.prototype.toJSON = function toJSON (src) {
   return dest;
 };
 
-KDTree.prototype.innerSearch = function innerSearch (point, node, parent) {
-  if (node === null) {
-    return parent;
-  }
 
-  var dimension = this.dimensions[node.dimension];
-  if (point[dimension] < node.data[dimension]) {
-    return this.innerSearch(point, node.left, node);
-  } else {
-    return this.innerSearch(point, node.right, node);
+KDTree.prototype._findNode = function _findNode (point) {
+  var Q = [this.root], node = null, D;
+  while (Q.length !== 0) {
+    node = Q.pop();
+    D = node.dimension;
+    if (point[D] < node.data[D] && node.left) { Q.push(node.left); }
+    else if (node.right)                    { Q.push(node.right); }
   }
+  return node;
 };
 
 /**
@@ -1071,49 +1128,23 @@ KDTree.prototype.innerSearch = function innerSearch (point, node, parent) {
  * @return {Node}
  */
 KDTree.prototype.insert = function insert (point) {
-  var insertPosition = this.innerSearch(point, this.root, null);
   var dimensions = this.dimensions;
 
-  if (insertPosition === null) {
+  if (this.root === null) {
     this.root = createNode(point, 0, null);
     return this.root;
   }
 
-  var newNode = createNode(point, (insertPosition.dimension + 1) % dimensions.length,
-    insertPosition);
-  var dimension = dimensions[insertPosition.dimension];
+  var node = this._findNode(point);
+  var dim= node.dimension;
+  var newNode = createNode(point, (dim + 1) % dimensions.length, node);
+  var D = dimensions[dim];
 
-  if (point[dimension] < insertPosition.data[dimension]) {
-    insertPosition.left = newNode;
-  } else {
-    insertPosition.right = newNode;
-  }
-
+  if (point[D] < node.data[D]) { node.left= newNode; }
+  else                       { node.right = newNode; }
   return newNode;
 };
 
-/**
- * @param{Node|Null} node
- * @param{*}       point
- * @return {Node|Null}
- */
-KDTree.prototype.nodeSearch = function nodeSearch (node, point) {
-  if (node === null) {
-    return null;
-  }
-
-  if (node.data === point) {
-    return node;
-  }
-
-  var dimension = this.dimensions[node.dimension];
-
-  if (point[dimension] < node.data[dimension]) {
-    return this.nodeSearch(node.left, node.data);
-  } else {
-    return this.nodeSearch(node.right, node.data);
-  }
-};
 
 /**
  * @param{Node}        node
@@ -1121,31 +1152,25 @@ KDTree.prototype.nodeSearch = function nodeSearch (node, point) {
  * @return {Node|Null}
  */
 KDTree.prototype.findMin = function findMin (node, dim) {
-  if (node === null) {
-    return null;
-  }
+  if (node === null) { return null; }
 
-  var dimension = this.dimensions[dim];
+  var D = this.dimensions[dim];
 
   if (node.dimension === dim) {
-    if (node.left !== null) {
+    if (node.left) {
       return this.findMin(node.left, dim);
     }
     return node;
   }
 
-  var own = node.data[dimension];
-  var left = this.findMin(node.left, dim);
+  var own = node.data[D];
+  var left= this.findMin(node.left, dim);
   var right = this.findMin(node.right, dim);
   var min = node;
 
-  if (left !== null && left.data[dimension] < own) {
-    min = left;
-  }
+  if (left!== null && left.data[D]< own)       { min = left; }
+  if (right !== null && right.data[D] < min.data[D]) { min = right; }
 
-  if (right !== null && right.data[dimension] < min.data[dimension]) {
-    min = right;
-  }
   return min;
 };
 
@@ -1195,10 +1220,8 @@ KDTree.prototype.removeNode = function removeNode (node) {
  * @return {*}
  */
 KDTree.prototype.remove = function remove (point) {
-  var node = this.nodeSearch(this.root, point);
-  if (node) {
-    this.removeNode(node);
-  }
+  var node = this._findNode(point);
+  if (node) { this.removeNode(node); }
   return point;
 };
 
@@ -1224,17 +1247,15 @@ KDTree.saveNode = function saveNode (node, distance, bestNodes, maxNodes) {
 KDTree.prototype.nearestSearch = function nearestSearch (node, point, bestNodes, maxNodes) {
   var bestChild;
   var dimensions = this.dimensions;
-  var dimension = dimensions[node.dimension];
-  var ownDistance = this.metric(point, node.data);
-  var linearPoint = {};
-  var otherChild, i;
+  var dimension  = dimensions[node.dimension];
+  var ownDistance= this.metric(point, node.data);
+  var linearPoint= [];
+  var otherChild, i, d;
 
   for (var i$1 = 0, len = dimensions.length; i$1 < len; i$1++) {
-    if (i$1 === node.dimension) {
-      linearPoint[dimensions[i$1]] = point[dimensions[i$1]];
-    } else {
-      linearPoint[dimensions[i$1]] = node.data[dimensions[i$1]];
-    }
+    d = dimensions[i$1];
+    if (i$1 === node.dimension) { linearPoint[d] = point[d]; }
+    else                    { linearPoint[d] = node.data[d]; }
   }
 
   var linearDistance = this.metric(linearPoint, node.data);
@@ -1267,11 +1288,9 @@ KDTree.prototype.nearestSearch = function nearestSearch (node, point, bestNodes,
 
   if (bestNodes.size() < maxNodes ||
     Math.abs(linearDistance) < bestNodes.peek()[1]) {
-    if (bestChild === node.left) {
-      otherChild = node.right;
-    } else {
-      otherChild = node.left;
-    }
+    if (bestChild === node.left) { otherChild = node.right; }
+    else                       { otherChild = node.left; }
+
     if (otherChild !== null) {
       this.nearestSearch(otherChild, point, bestNodes, maxNodes);
     }
@@ -1291,21 +1310,15 @@ KDTree.prototype.nearest = function nearest (point, maxNodes, maxDistance) {
   var bestNodes = new BinaryHeap(function (e) { return -e[1]; });
 
   if (maxDistance) {
-    for (var i = 0; i < maxNodes; i++) {
-      bestNodes.push([null, maxDistance]);
-    }
+    for (var i = 0; i < maxNodes; i++) { bestNodes.push([null, maxDistance]); }
   }
 
-  if (this.root) {
-    this.nearestSearch(this.root, point, bestNodes, maxNodes);
-  }
+  if (this.root) { this.nearestSearch(this.root, point, bestNodes, maxNodes); }
 
-  var result = [];
+  var result = [], content = bestNodes.content;
 
-  for (var i$1 = 0, len = Math.min(maxNodes, bestNodes.content.length); i$1 < len; i$1++) {
-    if (bestNodes.content[i$1][0]) {
-      result.push([bestNodes.content[i$1][0].data, bestNodes.content[i$1][1]]);
-    }
+  for (var i$1 = 0, len = Math.min(maxNodes, content.length); i$1 < len; i$1++) {
+    if (content[i$1][0]) { result.push([content[i$1][0].data, content[i$1][1]]); }
   }
   return result;
 };
@@ -1369,12 +1382,15 @@ function distance(a, b) {
   p2.lat = b[1];
   p2.lng = b[0];
 
+  //console.log(a, b);
+
+  //return L.latLng(a.slice().reverse()).distanceTo(b.slice(0, 2).reverse());
   return map.options.crs.distance(p1, p2);
 }
 
 console.log(data$2.features.length, 'items');
 console.time('build k-d tree');
-var tree = new kdtree(data$2.features.map(function(f) {
+var tree = commonjsGlobal.tree = new kdtree(data$2.features.map(function(f) {
   var c = f.geometry.coordinates.slice();
   c.feature = f;
   return c;
