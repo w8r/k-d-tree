@@ -608,6 +608,7 @@ function generateOrientationProc() {
 generateOrientationProc();
 });
 
+// these should probably use robust-sum, etc
 function vectSum(a,b) {
     return a.map(function(val,i) { return a[i]+b[i] })
 }
