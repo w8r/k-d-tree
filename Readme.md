@@ -1,5 +1,7 @@
 # K-d tree ([demo](https://w8r.github.io/k-d-tree/example/))
 
+Iterative k-d tree.
+
 ![demo](https://cloud.githubusercontent.com/assets/26884/10002492/b7484c2e-60a7-11e5-94cf-95cbaba9ad2b.gif)
 
 ```js
