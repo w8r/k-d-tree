@@ -1006,10 +1006,35 @@ KDTree.prototype.buildTree = function buildTree (points, depth, parent) {
   node = createNode(points[median], dim, parent);
 
   // divide
-  node.left = this.buildTree(points.slice(0, median), depth + 1, node);
+  node.left= this.buildTree(points.slice(0, median), depth + 1, node);
   node.right = this.buildTree(points.slice(median + 1), depth + 1, node);
 
   return node;
+};
+
+KDTree.prototype._buildTree = function _buildTree (points, depth, parent) {
+  var dimensions = this.dimensions;
+  var dim = depth % dimensions.length;
+
+  var Q = [points];
+  while (Q.length) {
+    var collection = Q.pop();
+    collection.sort(function(a, b) {
+      return a[dimensions[dim]] - b[dimensions[dim]];
+    });
+    var median = Math.floor(collection.length / 2);
+    var left = points.slice(0, median);
+    var right = points.slice(median + 1);
+    Q.push(left, right);
+  }
+  // create root
+  while (true) {
+    // got points and dimension
+    // sort points
+    // split again
+    left = points.slice(0, median);
+    right = points.slice(median + 1);
+  }
 };
 
 /**
